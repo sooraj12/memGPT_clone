@@ -1,5 +1,6 @@
 import os
 import uuid
+import sys
 
 from constants import (
     MEMGPT_DIR,
@@ -11,8 +12,21 @@ from constants import (
 from config import MemGPTConfig, LLMConfig, EmbeddingConfig
 from metadata import MetadataStore
 from data_types import User
-from presets import add_default_presets
-from utils import create_default_user_or_exit
+from presets.presets import add_default_presets
+
+
+def create_default_user_or_exit(config: MemGPTConfig, ms: MetadataStore):
+    user_id = uuid.UUID(config.anon_clientid)
+    user = ms.get_user(user_id=user_id)
+    if user is None:
+        ms.create_user(User(id=user_id))
+        user = ms.get_user(user_id=user_id)
+        if user is None:
+            sys.exit(1)
+        else:
+            return user
+    else:
+        return user
 
 
 def configure():
@@ -32,7 +46,7 @@ def configure():
     archival_storage_path = os.path.join(MEMGPT_DIR, "chroma")
 
     recall_storage_type = "postgres"
-    recall_storage_uri = "postgresql+pg8000://{user}:{password}@{ip}:5432/{database}"
+    recall_storage_uri = "postgresql://admin:admin@localhost:5432/memgpt"
 
     config = MemGPTConfig(
         default_llm_config=LLMConfig(
@@ -65,6 +79,7 @@ def configure():
     user = User(
         id=uuid.UUID(config.anon_clientid),
     )
+
     if ms.get_user(user_id):
         # update user
         ms.update_user(user)
@@ -76,6 +91,7 @@ def configure():
 
 
 def run():
+    agent = None
     # load config
     if not MemGPTConfig.exists():
         configure()  # configure llm backend
@@ -84,14 +100,22 @@ def run():
         config = MemGPTConfig.load()
 
     # read user id from config
-    ms = MetadataStore(config)
-    user = create_default_user_or_exit(config, ms)
-    human = config.human
-    persona = config.persona
+    # ms = MetadataStore(config)
+    # user = create_default_user_or_exit(config, ms)
+    # human = config.human
+    # persona = config.persona
 
-    # create agent config
+    # # determine agent to use
+    # agents = ms.list_agents(user_id=user.id)
+    # agents = [a.name for a in agents]
+    # if len(agents) > 0:
+    #     pass
 
-    # create new agent
+    # # create agent config
+    # agent_state = ms.get_agent(agent_name=agent, user_id=user.id) if agent else None
+    # # create agent config
+
+    # # create new agent
 
 
 if __name__ == "__main__":

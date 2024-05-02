@@ -1,16 +1,23 @@
 import os
+import inspect
+import tiktoken
+import uuid
 
-from datetime import timezone, datetime
+
+from datetime import timezone, datetime, timedelta
+from functools import wraps
+from typing import Union, _GenericAlias, get_type_hints
 from constants import (
     CORE_MEMORY_PERSONA_CHAR_LIMIT,
     CORE_MEMORY_HUMAN_CHAR_LIMIT,
     MEMGPT_DIR,
+    TOOL_CALL_ID_MAX_LEN,
 )
 
 
 def list_human_files():
     """List all humans files"""
-    defaults_dir = os.path.join(MEMGPT_DIR, "humans", "examples")
+    defaults_dir = os.path.join(".", "humans", "examples")
     user_dir = os.path.join(MEMGPT_DIR, "humans")
 
     memgpt_defaults = os.listdir(defaults_dir)
@@ -28,7 +35,7 @@ def list_human_files():
 
 def list_persona_files():
     """List all personas files"""
-    defaults_dir = os.path.join(MEMGPT_DIR, "personas", "examples")
+    defaults_dir = os.path.join(".", "personas", "examples")
     user_dir = os.path.join(MEMGPT_DIR, "personas")
 
     memgpt_defaults = os.listdir(defaults_dir)
@@ -78,5 +85,58 @@ def get_utc_time() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def create_default_user_or_exit():
-    pass
+def is_optional_type(hint):
+    """Check if the type hint is an Optional type."""
+    if isinstance(hint, _GenericAlias):
+        return hint.__origin__ is Union and type(None) in hint.__args__
+    return False
+
+
+def enforce_types(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        # Get type hints, excluding the return type hint
+        hints = {k: v for k, v in get_type_hints(func).items() if k != "return"}
+
+        # Get the function's argument names
+        arg_names = inspect.getfullargspec(func).args
+
+        # Pair each argument with its corresponding type hint
+        args_with_hints = dict(zip(arg_names[1:], args[1:]))  # Skipping 'self'
+
+        # Check types of arguments
+        for arg_name, arg_value in args_with_hints.items():
+            hint = hints.get(arg_name)
+            if (
+                hint
+                and not isinstance(arg_value, hint)
+                and not (is_optional_type(hint) and arg_value is None)
+            ):
+                raise ValueError(f"Argument {arg_name} does not match type {hint}")
+
+        # Check types of keyword arguments
+        for arg_name, arg_value in kwargs.items():
+            hint = hints.get(arg_name)
+            if (
+                hint
+                and not isinstance(arg_value, hint)
+                and not (is_optional_type(hint) and arg_value is None)
+            ):
+                raise ValueError(f"Argument {arg_name} does not match type {hint}")
+
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
+def is_utc_datetime(dt: datetime) -> bool:
+    return dt.tzinfo is not None and dt.tzinfo.utcoffset(dt) == timedelta(0)
+
+
+def count_tokens(s: str, model: str = "gpt-4") -> int:
+    encoding = tiktoken.encoding_for_model(model)
+    return len(encoding.encode(s))
+
+
+def get_tool_call_id() -> str:
+    return str(uuid.uuid4())[:TOOL_CALL_ID_MAX_LEN]

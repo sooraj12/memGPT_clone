@@ -3,15 +3,24 @@ import uuid
 from enum import Enum
 from datetime import datetime
 from typing import Dict, List, Optional
-from pydantic import Field, BaseModel
+from pydantic import BaseModel
 from sqlalchemy import JSON, Column
 from sqlalchemy_utils import ChoiceType
-from sqlmodel import SQLModel
-from constants import (
-    DEFAULT_HUMAN,
-    DEFAULT_PERSONA,
-)
+from sqlmodel import SQLModel, Field
+from constants import DEFAULT_HUMAN, DEFAULT_PERSONA, DEFAULT_ENDPOINT
 from utils import get_human_text, get_persona_text, get_utc_time
+from pydantic import ConfigDict
+
+
+class LLMConfigModel(BaseModel):
+    model: Optional[str] = "gpt-4"
+    model_endpoint_type: Optional[str] = "openai"
+    model_endpoint: Optional[str] = DEFAULT_ENDPOINT
+    model_wrapper: Optional[str] = None
+    context_window: Optional[int] = None
+
+    # FIXME hack to silence pydantic protected namespace warning
+    model_config = ConfigDict(protected_namespaces=())
 
 
 class EmbeddingConfigModel(BaseModel):

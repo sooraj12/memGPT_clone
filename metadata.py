@@ -14,7 +14,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import declarative_base, sessionmaker
-
+from typing import Optional
 from config import MemGPTConfig, LLMConfig, EmbeddingConfig
 from data_types import (
     AgentState,
@@ -23,12 +23,13 @@ from data_types import (
     Token,
     User,
 )
-from pydantic_models import (
+from models.pydantic_models import (
     HumanModel,
     JobModel,
     PersonaModel,
     ToolModel,
 )
+from utils import enforce_types
 
 
 Base = declarative_base()
@@ -285,6 +286,8 @@ class PresetModel(Base):
 
 
 class MetadataStore:
+    uri: Optional[str] = None
+
     def __init__(self, config: MemGPTConfig):
         self.uri = config.metadata_storage_uri
         self.engine = create_engine(self.uri)
@@ -310,3 +313,105 @@ class MetadataStore:
             print(e)
 
         self.session_maker = sessionmaker(bind=self.engine)
+
+    @enforce_types
+    def get_user(self, user_id: uuid.UUID) -> Optional[User]:
+        with self.session_maker() as session:
+            results = session.query(UserModel).filter(UserModel.id == user_id).all()
+            if len(results) == 0:
+                return None
+            assert len(results) == 1, f"Expected 1 result, got {len(results)}"
+            return results[0].to_record()
+
+    @enforce_types
+    def create_user(self, user: User):
+        with self.session_maker() as session:
+            if session.query(UserModel).filter(UserModel.id == user.id).count() > 0:
+                raise ValueError(f"User with id {user.id} already exists")
+            session.add(UserModel(**vars(user)))
+            session.commit()
+
+    @enforce_types
+    def update_user(self, user: User):
+        with self.session_maker() as session:
+            session.query(UserModel).filter(UserModel.id == user.id).update(vars(user))
+            session.commit()
+
+    @enforce_types
+    def get_persona(self, name: str, user_id: uuid.UUID) -> Optional[PersonaModel]:
+        with self.session_maker() as session:
+            results = (
+                session.query(PersonaModel)
+                .filter(PersonaModel.name == name)
+                .filter(PersonaModel.user_id == user_id)
+                .all()
+            )
+            if len(results) == 0:
+                return None
+            assert len(results) == 1, f"Expected 1 result, got {len(results)}"
+            return results[0]
+
+    @enforce_types
+    def add_persona(self, persona: PersonaModel):
+        with self.session_maker() as session:
+            session.add(persona)
+            session.commit()
+
+    @enforce_types
+    def get_human(self, name: str, user_id: uuid.UUID) -> Optional[HumanModel]:
+        with self.session_maker() as session:
+            results = (
+                session.query(HumanModel)
+                .filter(HumanModel.name == name)
+                .filter(HumanModel.user_id == user_id)
+                .all()
+            )
+            if len(results) == 0:
+                return None
+            assert len(results) == 1, f"Expected 1 result, got {len(results)}"
+            return results[0]
+
+    @enforce_types
+    def add_human(self, human: HumanModel):
+        with self.session_maker() as session:
+            session.add(human)
+            session.commit()
+
+    @enforce_types
+    def get_preset(
+        self,
+        preset_id: Optional[uuid.UUID] = None,
+        name: Optional[str] = None,
+        user_id: Optional[uuid.UUID] = None,
+    ) -> Optional[Preset]:
+        with self.session_maker() as session:
+            if preset_id:
+                results = (
+                    session.query(PresetModel).filter(PresetModel.id == preset_id).all()
+                )
+            elif name and user_id:
+                results = (
+                    session.query(PresetModel)
+                    .filter(PresetModel.name == name)
+                    .filter(PresetModel.user_id == user_id)
+                    .all()
+                )
+            else:
+                raise ValueError(
+                    "Must provide either preset_id or (preset_name and user_id)"
+                )
+            if len(results) == 0:
+                return None
+            assert len(results) == 1, f"Expected 1 result, got {len(results)}"
+            return results[0].to_record()
+
+    @enforce_types
+    def create_preset(self, preset: Preset):
+        with self.session_maker() as session:
+            if (
+                session.query(PresetModel).filter(PresetModel.id == preset.id).count()
+                > 0
+            ):
+                raise ValueError(f"User with id {preset.id} already exists")
+            session.add(PresetModel(**vars(preset)))
+            session.commit()

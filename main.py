@@ -13,6 +13,10 @@ from config import MemGPTConfig, LLMConfig, EmbeddingConfig
 from metadata import MetadataStore
 from data_types import User
 from presets.presets import add_default_presets
+from agent import Agent, save_agent
+from streaming_interface import (
+    StreamingRefreshCLIInterface as interface,  # for printing to terminal
+)
 
 
 def create_default_user_or_exit(config: MemGPTConfig, ms: MetadataStore):
@@ -91,7 +95,7 @@ def configure():
 
 
 def run():
-    agent = None
+    agent = "Memgpt_agent"
     # load config
     if not MemGPTConfig.exists():
         configure()  # configure llm backend
@@ -100,22 +104,40 @@ def run():
         config = MemGPTConfig.load()
 
     # read user id from config
-    # ms = MetadataStore(config)
-    # user = create_default_user_or_exit(config, ms)
-    # human = config.human
-    # persona = config.persona
+    ms = MetadataStore(config)
+    user = create_default_user_or_exit(config, ms)
 
-    # # determine agent to use
-    # agents = ms.list_agents(user_id=user.id)
-    # agents = [a.name for a in agents]
-    # if len(agents) > 0:
-    #     pass
+    # determine agent to use
+    agents = ms.list_agents(user_id=user.id)
+    agents = [a.name for a in agents]
+    if len(agents) > 0:
+        pass
 
-    # # create agent config
-    # agent_state = ms.get_agent(agent_name=agent, user_id=user.id) if agent else None
-    # # create agent config
+    agent_state = ms.get_agent(agent_name=agent, user_id=user.id) if agent else None
+    if agent and agent_state:  # use existing agent
+        pass
 
-    # # create new agent
+    else:  # create new agent
+        agent_name = agent
+        llm_config = config.default_llm_config
+        embedding_config = config.default_embedding_config
+        preset_obj = ms.get_preset(name=config.preset, user_id=user.id)
+
+        memgpt_agent = Agent(
+            interface=interface(),
+            name=agent_name,
+            created_by=user.id,
+            preset=preset_obj,
+            llm_config=llm_config,
+            embedding_config=embedding_config,
+            first_message_verify_mono=False,
+        )
+
+        save_agent(agent=memgpt_agent, ms=ms)
+
+    print()  # extra space
+
+    # run agent loop
 
 
 if __name__ == "__main__":

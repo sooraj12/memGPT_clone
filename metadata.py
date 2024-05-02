@@ -15,13 +15,14 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import declarative_base, sessionmaker
 from typing import Optional
-from config import MemGPTConfig, LLMConfig, EmbeddingConfig
 from data_types import (
     AgentState,
     Preset,
     Source,
     Token,
     User,
+    LLMConfig,
+    EmbeddingConfig,
 )
 from models.pydantic_models import (
     HumanModel,
@@ -30,6 +31,8 @@ from models.pydantic_models import (
     ToolModel,
 )
 from utils import enforce_types
+from typing import List
+from config import MemGPTConfig
 
 
 Base = declarative_base()
@@ -414,4 +417,68 @@ class MetadataStore:
             ):
                 raise ValueError(f"User with id {preset.id} already exists")
             session.add(PresetModel(**vars(preset)))
+            session.commit()
+
+    @enforce_types
+    def get_agent(
+        self,
+        agent_id: Optional[uuid.UUID] = None,
+        agent_name: Optional[str] = None,
+        user_id: Optional[uuid.UUID] = None,
+    ) -> Optional[AgentState]:
+        with self.session_maker() as session:
+            if agent_id:
+                results = (
+                    session.query(AgentModel).filter(AgentModel.id == agent_id).all()
+                )
+            else:
+                assert (
+                    agent_name is not None and user_id is not None
+                ), "Must provide either agent_id or agent_name"
+                results = (
+                    session.query(AgentModel)
+                    .filter(AgentModel.name == agent_name)
+                    .filter(AgentModel.user_id == user_id)
+                    .all()
+                )
+
+            if len(results) == 0:
+                return None
+            assert (
+                len(results) == 1
+            ), f"Expected 1 result, got {len(results)}"  # should only be one result
+            return results[0].to_record()
+
+    @enforce_types
+    def list_agents(self, user_id: uuid.UUID) -> List[AgentState]:
+        with self.session_maker() as session:
+            results = (
+                session.query(AgentModel).filter(AgentModel.user_id == user_id).all()
+            )
+            return [r.to_record() for r in results]
+
+    @enforce_types
+    def update_agent(self, agent: AgentState):
+        with self.session_maker() as session:
+            session.query(AgentModel).filter(AgentModel.id == agent.id).update(
+                vars(agent)
+            )
+            session.commit()
+
+    @enforce_types
+    def create_agent(self, agent: AgentState):
+        # insert into agent table
+        # make sure agent.name does not already exist for user user_id
+        assert agent.state is not None, "Agent state must be provided"
+        assert len(list(agent.state.keys())) > 0, "Agent state must not be empty"
+        with self.session_maker() as session:
+            if (
+                session.query(AgentModel)
+                .filter(AgentModel.name == agent.name)
+                .filter(AgentModel.user_id == agent.user_id)
+                .count()
+                > 0
+            ):
+                raise ValueError(f"Agent with name {agent.name} already exists")
+            session.add(AgentModel(**vars(agent)))
             session.commit()

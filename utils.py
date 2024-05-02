@@ -2,6 +2,10 @@ import os
 import inspect
 import tiktoken
 import uuid
+import json
+import difflib
+import pytz
+import hashlib
 
 
 from datetime import timezone, datetime, timedelta
@@ -12,6 +16,7 @@ from constants import (
     CORE_MEMORY_HUMAN_CHAR_LIMIT,
     MEMGPT_DIR,
     TOOL_CALL_ID_MAX_LEN,
+    JSON_ENSURE_ASCII,
 )
 
 
@@ -140,3 +145,72 @@ def count_tokens(s: str, model: str = "gpt-4") -> int:
 
 def get_tool_call_id() -> str:
     return str(uuid.uuid4())[:TOOL_CALL_ID_MAX_LEN]
+
+
+def get_schema_diff(schema_a, schema_b):
+    # Assuming f_schema and linked_function['json_schema'] are your JSON schemas
+    f_schema_json = json.dumps(schema_a, indent=2, ensure_ascii=JSON_ENSURE_ASCII)
+    linked_function_json = json.dumps(
+        schema_b, indent=2, ensure_ascii=JSON_ENSURE_ASCII
+    )
+
+    # Compute the difference using difflib
+    difference = list(
+        difflib.ndiff(
+            f_schema_json.splitlines(keepends=True),
+            linked_function_json.splitlines(keepends=True),
+        )
+    )
+
+    # Filter out lines that don't represent changes
+    difference = [
+        line for line in difference if line.startswith("+ ") or line.startswith("- ")
+    ]
+
+    return "".join(difference)
+
+
+def get_local_time_timezone(timezone="America/Los_Angeles"):
+    # Get the current time in UTC
+    current_time_utc = datetime.now(pytz.utc)
+
+    # Convert to San Francisco's time zone (PST/PDT)
+    sf_time_zone = pytz.timezone(timezone)
+    local_time = current_time_utc.astimezone(sf_time_zone)
+
+    # You may format it as you desire, including AM/PM
+    formatted_time = local_time.strftime("%Y-%m-%d %I:%M:%S %p %Z%z")
+
+    return formatted_time
+
+
+def get_local_time(timezone=None):
+    if timezone is not None:
+        time_str = get_local_time_timezone(timezone)
+    else:
+        # Get the current time, which will be in the local timezone of the computer
+        local_time = datetime.now().astimezone()
+
+        # You may format it as you desire, including AM/PM
+        time_str = local_time.strftime("%Y-%m-%d %I:%M:%S %p %Z%z")
+
+    return time_str.strip()
+
+
+def create_uuid_from_string(val: str):
+    """
+    Generate consistent UUID from a string
+    from: https://samos-it.com/posts/python-create-uuid-from-random-string-of-words.html
+    """
+    hex_string = hashlib.md5(val.encode("UTF-8")).hexdigest()
+    return uuid.UUID(hex=hex_string)
+
+
+def datetime_to_timestamp(dt):
+    # convert datetime object to integer timestamp
+    return int(dt.timestamp())
+
+
+def timestamp_to_datetime(ts):
+    # convert integer timestamp to datetime object
+    return datetime.fromtimestamp(ts)

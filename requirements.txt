@@ -1,0 +1,16 @@
+greenlet==3.0.3
+SQLAlchemy==2.0.29
+typing_extensions==4.11.0
+annotated-types==0.6.0
+greenlet==3.0.3
+pydantic==2.7.1
+pydantic_core==2.18.2
+SQLAlchemy==2.0.29
+typing_extensions==4.11.0
+annotated-types==0.6.0
+greenlet==3.0.3
+pydantic==2.7.1
+pydantic_core==2.18.2
+SQLAlchemy==2.0.29
+SQLAlchemy-Utils==0.41.2
+typing_extensions==4.11.0

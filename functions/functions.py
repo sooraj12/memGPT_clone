@@ -114,7 +114,6 @@ def load_all_function_sets(merge: bool = True, ignore_duplicates: bool = True) -
                 full_module_name = f"functions.function_sets.{module_name}"
                 tags.append(f"memgpt-{module_name}")
                 try:
-                    print(full_module_name)
                     module = importlib.import_module(full_module_name)
                 except Exception as e:
                     # Handle other general exceptions
@@ -126,7 +125,6 @@ def load_all_function_sets(merge: bool = True, ignore_duplicates: bool = True) -
             try:
                 # Load the function set
                 function_set = load_function_set(module)
-                print(function_set)
                 # Add the metadata tags
                 for k, v in function_set.items():
                     # print(function_set)
@@ -137,7 +135,6 @@ def load_all_function_sets(merge: bool = True, ignore_duplicates: bool = True) -
                 print(err)
                 warnings.warn(err)
 
-    print(schemas_and_functions)
     if merge:
         # Put all functions from all sets into the same level dict
         merged_functions = {}

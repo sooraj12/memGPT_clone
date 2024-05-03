@@ -47,3 +47,21 @@ STARTUP_QUOTES = [
 ]
 INITIAL_BOOT_MESSAGE_SEND_MESSAGE_FIRST_MSG = STARTUP_QUOTES[2]
 INITIAL_BOOT_MESSAGE = "Boot sequence complete. Persona activated."
+
+NON_USER_MSG_PREFIX = "[This is an automated system message hidden from the user] "
+
+MESSAGE_SUMMARY_WARNING_STR = " ".join(
+    [
+        f"{NON_USER_MSG_PREFIX}The conversation history will soon reach its maximum length and be trimmed.",
+        "Do NOT tell the user about this system alert, they should not know that the history is reaching max length.",
+        "If there is any important new information or general memories about you or the user that you would like to save, you should save that information immediately by calling function core_memory_append, core_memory_replace, or archival_memory_insert.",
+        # "Remember to pass request_heartbeat = true if you would like to send a message immediately after.",
+    ]
+)
+
+FUNC_FAILED_HEARTBEAT_MESSAGE = (
+    f"{NON_USER_MSG_PREFIX}Function call failed, returning control"
+)
+REQ_HEARTBEAT_MESSAGE = f"{NON_USER_MSG_PREFIX}Function called using request_heartbeat=true, returning control"
+
+FIRST_MESSAGE_ATTEMPTS = 10

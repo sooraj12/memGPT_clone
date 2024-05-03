@@ -4,8 +4,6 @@ from typing import Dict, Iterator, List, Optional, Tuple, Type, Union
 
 from config import MemGPTConfig
 from data_types import Document, Message, Passage, Record, RecordType
-from agent_store.db import PostgresStorageConnector
-from agent_store.chroma import ChromaStorageConnector
 
 
 class TableType:
@@ -105,8 +103,12 @@ class StorageConnector:
             raise ValueError(f"Table type {table_type} not implemented")
 
         if storage_type == "postgres":
+            from agent_store.db import PostgresStorageConnector
+
             return PostgresStorageConnector(table_type, config, user_id, agent_id)
         elif storage_type == "chroma":
+            from agent_store.chroma import ChromaStorageConnector
+
             return ChromaStorageConnector(table_type, config, user_id, agent_id)
 
         else:

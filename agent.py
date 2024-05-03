@@ -3,7 +3,7 @@ import json
 import datetime
 
 from metadata import MetadataStore
-from typing import Optional, Union, List, cast
+from typing import Optional, Union, List, cast, Tuple
 from data_types import AgentState, Preset, LLMConfig, EmbeddingConfig, Message
 from interface import AgentInterface
 from functions.functions import load_all_function_sets
@@ -13,6 +13,7 @@ from constants import CORE_MEMORY_HUMAN_CHAR_LIMIT, CORE_MEMORY_PERSONA_CHAR_LIM
 from memory import CoreMemory, ArchivalMemory, RecallMemory
 from persistence_manager import LocalStateManager
 from system import get_login_event, get_initial_boot_messages
+from constants import FIRST_MESSAGE_ATTEMPTS
 
 
 def link_functions(function_schemas: list):
@@ -168,8 +169,24 @@ class Agent:
         messages_total: Optional[int] = None,
         first_message_verify_mono: bool = True,
     ):
+        init_agent_state = None
         if preset is not None:
-            pass
+            init_agent_state = AgentState(
+                name="Sooraj",
+                user_id=created_by,
+                persona=preset.persona,
+                human=preset.human,
+                llm_config=llm_config,
+                embedding_config=embedding_config,
+                preset=preset.name,  # TODO link via preset.id instead of name?
+                state={
+                    "persona": preset.persona,
+                    "human": preset.human,
+                    "system": preset.system,
+                    "functions": preset.functions_schema,
+                    "messages": None,
+                },
+            )
 
         elif agent_state is not None:
             init_agent_state = agent_state
@@ -288,6 +305,29 @@ class Agent:
             state=updated_state,
         )
         return self.agent_state
+
+    def _append_to_messages(self, added_messages: List[Message]):
+        """Wrapper around self.messages.append to allow additional calls to a state/persistence manager"""
+        assert all([isinstance(msg, Message) for msg in added_messages])
+
+        self.persistence_manager.append_to_messages(added_messages)
+
+        new_messages = self._messages + added_messages  # append
+
+        self._messages = new_messages
+        self.messages_total += len(added_messages)
+
+    def step(
+        self,
+        user_message: Union[Message, str],  # NOTE: should be json.dump(dict)
+        first_message: bool = False,
+        first_message_retry_limit: int = FIRST_MESSAGE_ATTEMPTS,
+        skip_verify: bool = False,
+        return_dicts: bool = True,  # if True, return dicts, if False, return Message objects
+        recreate_message_timestamp: bool = True,  # if True, when input is a Message type, recreated the 'created_at' field
+        stream: bool = False,  # TODO move to config?
+    ) -> Tuple[List[Union[dict, Message]], bool, bool, bool]:
+        pass
 
 
 def save_agent(agent: Agent, ms: MetadataStore):

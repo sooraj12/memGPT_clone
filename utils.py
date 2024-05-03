@@ -18,6 +18,7 @@ from constants import (
     TOOL_CALL_ID_MAX_LEN,
     JSON_ENSURE_ASCII,
 )
+from urllib.parse import urlparse
 
 
 def list_human_files():
@@ -214,3 +215,11 @@ def datetime_to_timestamp(dt):
 def timestamp_to_datetime(ts):
     # convert integer timestamp to datetime object
     return datetime.fromtimestamp(ts)
+
+
+def is_valid_url(url):
+    try:
+        result = urlparse(url)
+        return all([result.scheme, result.netloc])
+    except ValueError:
+        return False

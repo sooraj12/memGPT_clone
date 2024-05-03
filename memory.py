@@ -6,7 +6,6 @@ from typing import List, Optional, Tuple, Union
 from data_types import Message, AgentState, Passage
 from embeddings import embedding_model, parse_and_chunk_text, query_embedding
 from utils import get_local_time
-from agent_store.storage import StorageConnector
 
 
 class CoreMemory:
@@ -173,6 +172,7 @@ class BaseRecallMemory(RecallMemory):
         # If true, the pool of messages that can be queried are the automated summaries only
         # (generated when the conversation window needs to be shortened)
         self.restrict_search_to_summaries = restrict_search_to_summaries
+        from agent_store.storage import StorageConnector
 
         self.agent_state = agent_state
 
@@ -245,6 +245,7 @@ class EmbeddingArchivalMemory(ArchivalMemory):
         :param archival_memory_database: name of dataset to pre-fill archival with
         :type archival_memory_database: str
         """
+        from agent_store.storage import StorageConnector
 
         self.top_k = top_k
         self.agent_state = agent_state

@@ -22,12 +22,12 @@ path = ./.memgpt/chroma
 [recall_storage]
 type = postgres
 path = ./.memgpt
-uri = postgresql://admin:admin@localhost:5432/memgpt
+uri = postgresql+pg8000://admin:admin@localhost:5432/memgpt
 
 [metadata_storage]
 type = postgres
 path = ./.memgpt
-uri = postgresql://admin:admin@localhost:5432/memgpt
+uri = postgresql+pg8000://admin:admin@localhost:5432/memgpt
 
 [client]
 anon_clientid = 00000000-0000-0000-0000-000000000000

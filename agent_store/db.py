@@ -1,7 +1,6 @@
 import base64
 import uuid
 from typing import Dict, Iterator, List, Optional
-from pgvector.sqlalchemy import Vector
 
 import numpy as np
 from sqlalchemy import (
@@ -34,7 +33,6 @@ from agent_store.storage import StorageConnector, TableType
 from config import MemGPTConfig
 from constants import MAX_EMBEDDING_DIM
 from data_types import Message, Passage, Record, RecordType, ToolCall
-from settings import settings
 
 
 # Custom UUID type
@@ -156,10 +154,9 @@ def get_db_model(
             )  # agent_name if agent, data_source name if from data source
 
             # vector storage
-            if dialect == "sqlite":
-                embedding = Column(CommonVector)
-            else:
-                embedding = mapped_column(Vector(MAX_EMBEDDING_DIM))
+            from pgvector.sqlalchemy import Vector
+
+            embedding = mapped_column(Vector(MAX_EMBEDDING_DIM))
             embedding_dim = Column(BIGINT)
             embedding_model = Column(String)
 
@@ -224,10 +221,9 @@ def get_db_model(
             tool_call_id = Column(String)
 
             # vector storage
-            if dialect == "sqlite":
-                embedding = Column(CommonVector)
-            else:
-                embedding = mapped_column(Vector(MAX_EMBEDDING_DIM))
+            from pgvector.sqlalchemy import Vector
+
+            embedding = mapped_column(Vector(MAX_EMBEDDING_DIM))
             embedding_dim = Column(BIGINT)
             embedding_model = Column(String)
 
@@ -483,6 +479,8 @@ class PostgresStorageConnector(SQLStorageConnector):
     # TODO: this should probably eventually be moved into a parent DB class
 
     def __init__(self, table_type: str, config: MemGPTConfig, user_id, agent_id=None):
+        from pgvector.sqlalchemy import Vector
+
         super().__init__(
             table_type=table_type, config=config, user_id=user_id, agent_id=agent_id
         )
@@ -493,28 +491,22 @@ class PostgresStorageConnector(SQLStorageConnector):
         )
 
         # construct URI from enviornment variables
-        if settings.pg_uri:
-            self.uri = settings.pg_uri
+        # use config URI
+        # TODO: remove this eventually (config should NOT contain URI)
+        if table_type == TableType.ARCHIVAL_MEMORY or table_type == TableType.PASSAGES:
+            self.uri = self.config.archival_storage_uri
+            if self.config.archival_storage_uri is None:
+                raise ValueError(
+                    f"Must specifiy archival_storage_uri in config {self.config.config_path}"
+                )
+        elif table_type == TableType.RECALL_MEMORY:
+            self.uri = self.config.recall_storage_uri
+            if self.config.recall_storage_uri is None:
+                raise ValueError(
+                    f"Must specifiy recall_storage_uri in config {self.config.config_path}"
+                )
         else:
-            # use config URI
-            # TODO: remove this eventually (config should NOT contain URI)
-            if (
-                table_type == TableType.ARCHIVAL_MEMORY
-                or table_type == TableType.PASSAGES
-            ):
-                self.uri = self.config.archival_storage_uri
-                if self.config.archival_storage_uri is None:
-                    raise ValueError(
-                        f"Must specifiy archival_storage_uri in config {self.config.config_path}"
-                    )
-            elif table_type == TableType.RECALL_MEMORY:
-                self.uri = self.config.recall_storage_uri
-                if self.config.recall_storage_uri is None:
-                    raise ValueError(
-                        f"Must specifiy recall_storage_uri in config {self.config.config_path}"
-                    )
-            else:
-                raise ValueError(f"Table type {table_type} not implemented")
+            raise ValueError(f"Table type {table_type} not implemented")
 
         # create engine
         self.engine = create_engine(self.uri)
@@ -530,6 +522,7 @@ class PostgresStorageConnector(SQLStorageConnector):
             session.execute(
                 text("CREATE EXTENSION IF NOT EXISTS vector")
             )  # Enables the vector extension
+            session.commit()
 
         # create table
         Base.metadata.create_all(
